@@ -6,6 +6,7 @@ namespace HardboneBatcher
 {
 	using System;
 	using System.Collections.Generic;
+	using System.Globalization;
 	using System.Linq;
 	using System.Threading;
 	using System.Threading.Tasks;
@@ -16,7 +17,8 @@ namespace HardboneBatcher
 
 	public class Program
 	{
-		private const int Parallelism = 2;
+		// Maximum number of parallel processes; 0 to use processor count
+		private const int Parallelism = 0;
 
 		private const string PythonPath = @"C:\Python27\ArcGIS10.8\python.exe";
 
@@ -34,13 +36,15 @@ namespace HardboneBatcher
 
 			Console.CancelKeyPress += (sender, eventArgs) =>
 			{
+				Console.WriteLine("Cancelling...");
+
 				// Cancel the cancellation to allow the program to shutdown cleanly
 				eventArgs.Cancel = true;
 				cancellationTokenSource.Cancel();
-				Console.WriteLine("Cancelling...");
 			};
 
-			Console.WriteLine("Starting...");
+			DateTime startTime = DateTime.Now;
+			Console.WriteLine("Starting... " + startTime.ToLongTimeString());
 
 			GridShapeService gridShapeService = new GridShapeService(Program.ShapePath);
 
@@ -70,10 +74,15 @@ namespace HardboneBatcher
 			catch (OperationCanceledException)
 			{
 				Console.WriteLine("Cancelled operation.");
+
+				// Wait for the remaining tasks to finish
+				Thread.Sleep(500);
 				return;
 			}
 
-			Console.WriteLine("Finished.");
+			DateTime endTime = DateTime.Now;
+			Console.WriteLine("Finished. " + endTime.ToLongTimeString());
+			Console.WriteLine("Processing time: " + (endTime - startTime).ToString("g", CultureInfo.InvariantCulture));
 			Console.WriteLine("--- Press a key to close ---");
 			Console.ReadKey();
 		}

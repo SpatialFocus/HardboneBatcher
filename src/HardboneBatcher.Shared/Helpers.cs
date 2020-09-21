@@ -7,6 +7,7 @@ namespace HardboneBatcher.Shared
 	using System;
 	using System.Collections.Generic;
 
+	// TODO: Remove Console and switch to generic logger
 	public static class Helpers
 	{
 		public static readonly List<ConsoleColor> Colors = new List<ConsoleColor>
@@ -27,16 +28,21 @@ namespace HardboneBatcher.Shared
 			ConsoleColor.White,
 		};
 
+		private static readonly object LockObject = new object();
+
 		public static ConsoleColor GetRandomColor(Random random) => Helpers.Colors[random?.Next(Helpers.Colors.Count) ?? 0];
 
 		public static void Output(string tile, string message, ConsoleColor color)
 		{
-			ConsoleColor consoleColor = Console.ForegroundColor;
+			lock (Helpers.LockObject)
+			{
+				ConsoleColor consoleColor = Console.ForegroundColor;
 
-			Console.ForegroundColor = color;
-			Console.Write($"{tile}");
-			Console.ForegroundColor = consoleColor;
-			Console.WriteLine($" || {message}");
+				Console.ForegroundColor = color;
+				Console.Write(tile);
+				Console.ForegroundColor = consoleColor;
+				Console.WriteLine($" || {message}");
+			}
 		}
 
 		public static void OutputConditional(string tile, string message, ConsoleColor color)
@@ -54,23 +60,29 @@ namespace HardboneBatcher.Shared
 				return;
 			}
 
-			ConsoleColor consoleColor = Console.ForegroundColor;
+			lock (Helpers.LockObject)
+			{
+				ConsoleColor consoleColor = Console.ForegroundColor;
 
-			Console.ForegroundColor = color;
-			Console.Write($"{tile}");
-			Console.ForegroundColor = consoleColor;
-			Console.WriteLine($" || {message}");
+				Console.ForegroundColor = color;
+				Console.Write(tile);
+				Console.ForegroundColor = consoleColor;
+				Console.WriteLine($" || {message}");
+			}
 		}
 
 		public static void OutputError(string tile, string message, ConsoleColor color)
 		{
-			ConsoleColor consoleColor = Console.ForegroundColor;
+			lock (Helpers.LockObject)
+			{
+				ConsoleColor consoleColor = Console.ForegroundColor;
 
-			Console.ForegroundColor = color;
-			Console.Write($"{tile}");
-			Console.ForegroundColor = ConsoleColor.Red;
-			Console.WriteLine($" || {message}");
-			Console.ForegroundColor = consoleColor;
+				Console.ForegroundColor = color;
+				Console.Write(tile);
+				Console.ForegroundColor = ConsoleColor.Red;
+				Console.WriteLine($" || {message}");
+				Console.ForegroundColor = consoleColor;
+			}
 		}
 	}
 }
