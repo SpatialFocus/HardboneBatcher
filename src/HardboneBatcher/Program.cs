@@ -20,12 +20,16 @@ namespace HardboneBatcher
 		// Maximum number of parallel processes; 0 to use processor count
 		private const int Parallelism = 0;
 
+		// Path to the ArcPy executable
 		private const string PythonPath = @"C:\Python27\ArcGIS10.8\python.exe";
 
+		// Root directory to the geodatabases
 		private const string RootPath = @"C:\temp\CLCplus\Testsite_Sweden\01_input_data\SE";
 
+		// Location of the ArcPy script
 		private const string ScriptPath = @"C:\temp\CLCplus\HardboneIntegration_v1_0_withParams.py";
 
+		// Path to the batch shapefile
 		private const string ShapePath =
 			@"C:\temp\CLCplus\Testsite_Sweden\02_grid_cells\europe_25km_10km_Sweden_testsite_v2\europe_25km_10km_Sweden_testsite_v2.shp";
 
@@ -36,7 +40,7 @@ namespace HardboneBatcher
 
 			Console.CancelKeyPress += (sender, eventArgs) =>
 			{
-				Console.WriteLine("Cancelling...");
+				Console.WriteLine("Cancelling, please wait...");
 
 				// Cancel the cancellation to allow the program to shutdown cleanly
 				eventArgs.Cancel = true;
@@ -76,7 +80,7 @@ namespace HardboneBatcher
 				Console.WriteLine("Cancelled operation.");
 
 				// Wait for the remaining tasks to finish
-				Thread.Sleep(500);
+				Thread.Sleep(5000);
 				return;
 			}
 
