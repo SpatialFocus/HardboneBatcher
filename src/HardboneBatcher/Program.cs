@@ -6,6 +6,7 @@ namespace HardboneBatcher
 {
 	using System;
 	using System.Collections.Generic;
+	using System.Diagnostics;
 	using System.Globalization;
 	using System.Linq;
 	using System.Threading;
@@ -14,81 +15,84 @@ namespace HardboneBatcher
 	using CliWrap.EventStream;
 	using Dasync.Collections;
 	using HardboneBatcher.Shared;
+	using Microsoft.Extensions.Configuration;
+	using Microsoft.Extensions.DependencyInjection;
+	using Microsoft.Extensions.Logging;
+	using Serilog;
 
 	public class Program
 	{
-		// Maximum number of parallel processes; 0 to use processor count
-		private const int Parallelism = 0;
-
-		// Path to the ArcPy executable
-		private const string PythonPath = @"C:\Python27\ArcGIS10.8\python.exe";
-
-		// Root directory to the geodatabases
-		private const string RootPath = @"C:\temp\CLCplus\Testsite_Sweden\01_input_data\SE";
-
-		// Location of the ArcPy script
-		private const string ScriptPath = @"C:\temp\CLCplus\HardboneIntegration_v1_0_withParams.py";
-
-		// Path to the batch shapefile
-		private const string ShapePath =
-			@"C:\temp\CLCplus\Testsite_Sweden\02_grid_cells\europe_25km_10km_Sweden_testsite_v2\europe_25km_10km_Sweden_testsite_v2.shp";
-
 		private static async Task Main()
 		{
+			IConfigurationBuilder builder = new ConfigurationBuilder().AddJsonFile("appsettings.json");
+
+			IConfigurationRoot config = builder.Build();
+
+			ServiceCollection serviceCollection = new ServiceCollection();
+			serviceCollection.AddLogging(loggingBuilder => loggingBuilder.AddSerilog(new LoggerConfiguration().ReadFrom
+				.Configuration(config.GetSection("Logging"))
+				.WriteTo.Map("Tile", "generic", (name, wt) => wt.File($"./logs/log-{name}.txt"))
+				.CreateLogger()));
+
+			ServiceProvider provider = serviceCollection.BuildServiceProvider();
+			ILogger<Program> logger = provider.GetRequiredService<ILogger<Program>>();
+
 			List<Command> commands = new List<Command>();
+
+#pragma warning disable CA2000 // Dispose objects before losing scope
 			CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+#pragma warning restore CA2000 // Dispose objects before losing scope
 
 			Console.CancelKeyPress += (sender, eventArgs) =>
 			{
-				Console.WriteLine("Cancelling, please wait...");
+				logger.LogInformation("Cancelling, please wait...");
 
 				// Cancel the cancellation to allow the program to shutdown cleanly
 				eventArgs.Cancel = true;
 				cancellationTokenSource.Cancel();
 			};
 
-			DateTime startTime = DateTime.Now;
-			Console.WriteLine("Starting... " + startTime.ToLongTimeString());
+			Stopwatch stopwatch = Stopwatch.StartNew();
+			logger.LogInformation("Starting...");
 
-			GridShapeService gridShapeService = new GridShapeService(Program.ShapePath);
+			GridShapeService gridShapeService = new GridShapeService(config["ShapePath"]);
 
 			List<string> cells = gridShapeService.GetCellCodes();
 
 			foreach (string cell in cells)
 			{
-				commands.Add(Cli.Wrap(Program.PythonPath)
-					.WithArguments(a => a.Add(Program.ScriptPath).Add($"-r:{Program.RootPath}").Add($"-c:{cell}")));
+				commands.Add(Cli.Wrap(config["PythonPath"])
+					.WithArguments(a => a.Add(config["ScriptPath"]).Add($"{config["RootPath"]}").Add("#").Add($"{cell}")));
 			}
-
-			Random random = new Random();
 
 			try
 			{
+				CommandEventHandler commandEventHandler = new CommandEventHandler(logger);
 				await commands.ParallelForEachAsync(async cmd =>
 					{
-						ConsoleColor randomColor = Helpers.GetRandomColor(random);
-
 						await foreach (CommandEvent cmdEvent in cmd.ListenAsync(cancellationTokenSource.Token))
 						{
-							CommandEventHandler.Handle(cmd.Arguments.Split(':').Last(), cmdEvent, randomColor);
+							commandEventHandler.Handle(cmd.Arguments.Split(' ').Last(), cmdEvent);
 						}
-					}, Program.Parallelism, cancellationTokenSource.Token)
+					}, int.Parse(config["Parallelism"], CultureInfo.InvariantCulture), cancellationTokenSource.Token)
 					.ConfigureAwait(false);
 			}
 			catch (OperationCanceledException)
 			{
-				Console.WriteLine("Cancelled operation.");
+				logger.LogInformation("Cancelled operation.");
 
 				// Wait for the remaining tasks to finish
 				Thread.Sleep(5000);
 				return;
 			}
 
-			DateTime endTime = DateTime.Now;
-			Console.WriteLine("Finished. " + endTime.ToLongTimeString());
-			Console.WriteLine("Processing time: " + (endTime - startTime).ToString("g", CultureInfo.InvariantCulture));
-			Console.WriteLine("--- Press a key to close ---");
-			Console.ReadKey();
+			logger.LogInformation("Finished in {Time}ms", stopwatch.ElapsedMilliseconds);
+
+			if (bool.Parse(config["WaitForUserInputAfterCompletion"]))
+			{
+				logger.LogInformation("=== PRESS A KEY TO PROCEED ===");
+				Console.ReadKey();
+			}
 		}
 	}
 }

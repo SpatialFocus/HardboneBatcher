@@ -6,24 +6,41 @@ namespace HardboneBatcher.Shared
 {
 	using System;
 	using CliWrap.EventStream;
+	using Microsoft.Extensions.Logging;
 
-	public static class CommandEventHandler
+	public class CommandEventHandler
 	{
-		public static void Handle(string tile, CommandEvent cmdEvent, ConsoleColor color)
+		private readonly ILogger logger;
+
+		public CommandEventHandler(ILogger logger)
+		{
+			this.logger = logger;
+		}
+
+		public void Handle(string tile, CommandEvent cmdEvent)
 		{
 			switch (cmdEvent)
 			{
 				case StartedCommandEvent started:
-					Helpers.Output(tile, $"Started process '{started.ProcessId}'", color);
+					this.logger.LogInformation("{Tile} || Started process '" + started.ProcessId + "'", tile);
 					break;
 				case StandardOutputCommandEvent stdOut:
-					Helpers.OutputConditional(tile, stdOut.Text, color);
+					var message = stdOut.Text;
+					//if (!message.StartsWith("Started Pre-Processing of tile", StringComparison.InvariantCultureIgnoreCase) &&
+					//	!message.StartsWith("Tile-ID:", StringComparison.InvariantCultureIgnoreCase) &&
+					//	!message.StartsWith("Time Elapsed:", StringComparison.InvariantCultureIgnoreCase) &&
+					//	!message.StartsWith("Path to Results:", StringComparison.InvariantCultureIgnoreCase))
+					//{
+					//	return;
+					//}
+
+					this.logger.LogDebug("{Tile} || " + stdOut.Text, tile);
 					break;
 				case StandardErrorCommandEvent stdErr:
-					Helpers.OutputError(tile, stdErr.Text, color);
+					this.logger.LogError("{Tile} || Error: " + stdErr.Text, tile);
 					break;
 				case ExitedCommandEvent exited:
-					Helpers.Output(tile, $"Exit '{exited.ExitCode}'", color);
+					this.logger.LogInformation("{Tile} || Exit: " + exited.ExitCode, tile);
 					break;
 			}
 		}
