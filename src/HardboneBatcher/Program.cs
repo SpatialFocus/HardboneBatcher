@@ -58,44 +58,45 @@ namespace HardboneBatcher
 			Stopwatch stopwatch = Stopwatch.StartNew();
 			logger.LogInformation("Starting...");
 
-			if (!Program.ValidateSettings(config))
+			if (Program.ValidateSettings(config))
+			{
+				GridShapeService gridShapeService = new GridShapeService(config["ShapePath"]);
+
+				List<string> cells = gridShapeService.GetCellCodes();
+
+				foreach (string cell in cells)
+				{
+					commands.Add(Cli.Wrap(config["PythonPath"])
+						.WithArguments(a => a.Add(config["ScriptPath"]).Add($"{config["RootPath"]}").Add("#").Add($"{cell}")));
+				}
+
+				try
+				{
+					CommandEventHandler commandEventHandler = new CommandEventHandler(logger);
+					await commands.ParallelForEachAsync(async cmd =>
+						{
+							await foreach (CommandEvent cmdEvent in cmd.ListenAsync(cancellationTokenSource.Token))
+							{
+								commandEventHandler.Handle(cmd.Arguments.Split(' ').Last(), cmdEvent);
+							}
+						}, int.Parse(config["Parallelism"], CultureInfo.InvariantCulture), cancellationTokenSource.Token)
+						.ConfigureAwait(false);
+				}
+				catch (OperationCanceledException)
+				{
+					logger.LogInformation("Cancelled operation.");
+
+					// Wait for the remaining tasks to finish
+					Thread.Sleep(5000);
+					return;
+				}
+
+				logger.LogInformation("Finished in {Time}ms", stopwatch.ElapsedMilliseconds);
+			}
+			else
 			{
 				logger.LogCritical("Settings validation failed. Please check and fix 'appsettings.json'. Exiting!");
-				return;
 			}
-
-			GridShapeService gridShapeService = new GridShapeService(config["ShapePath"]);
-
-			List<string> cells = gridShapeService.GetCellCodes();
-
-			foreach (string cell in cells)
-			{
-				commands.Add(Cli.Wrap(config["PythonPath"])
-					.WithArguments(a => a.Add(config["ScriptPath"]).Add($"{config["RootPath"]}").Add("#").Add($"{cell}")));
-			}
-
-			try
-			{
-				CommandEventHandler commandEventHandler = new CommandEventHandler(logger);
-				await commands.ParallelForEachAsync(async cmd =>
-					{
-						await foreach (CommandEvent cmdEvent in cmd.ListenAsync(cancellationTokenSource.Token))
-						{
-							commandEventHandler.Handle(cmd.Arguments.Split(' ').Last(), cmdEvent);
-						}
-					}, int.Parse(config["Parallelism"], CultureInfo.InvariantCulture), cancellationTokenSource.Token)
-					.ConfigureAwait(false);
-			}
-			catch (OperationCanceledException)
-			{
-				logger.LogInformation("Cancelled operation.");
-
-				// Wait for the remaining tasks to finish
-				Thread.Sleep(5000);
-				return;
-			}
-
-			logger.LogInformation("Finished in {Time}ms", stopwatch.ElapsedMilliseconds);
 
 			if (bool.Parse(config["WaitForUserInputAfterCompletion"]))
 			{
