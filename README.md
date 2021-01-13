@@ -7,7 +7,7 @@ Batch script to run the hardbone extraction in parallel.
 1) Open `appsettings.json` for editing
 2) Modify top variables according to your environment:
 
-```json
+```csharp
 {
    // Maximum number of parallel processes; 0 to use processor count
    "Parallelism": 0,
