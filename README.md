@@ -2,6 +2,9 @@
 
 Batch script to run the hardbone extraction in parallel.
 
+[![Publish and Create Release](https://github.com/SpatialFocus/HardboneBatcher/actions/workflows/create-release.yml/badge.svg)](https://github.com/SpatialFocus/HardboneBatcher/actions/workflows/create-release.yml)
+[![FOSSA Status](https://app.fossa.com/api/projects/custom%2B19685%2Fgithub.com%2FSpatialFocus%2FHardboneBatcher.svg?type=shield)](https://app.fossa.com/projects/custom%2B19685%2Fgithub.com%2FSpatialFocus%2FHardboneBatcher?ref=badge_shield)
+
 ## Adjust the variables in appsettings
 
 1) Open `appsettings.json` for editing
